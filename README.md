@@ -152,5 +152,7 @@ sudo systemctl start ansible-web
 # 👨‍💻 Sobre o Autor
 
 Desenvolvido por **Pedro Gonçalves**.
+
 Atuo como estagiário na área de **DevOps e Infraestrutura**.
+
 Focado em automação de sistemas Linux, redes e no desenvolvimento de ferramentas que otimizam a operação de TI através de código.
