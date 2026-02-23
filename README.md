@@ -71,14 +71,22 @@ CREATE TABLE IF NOT EXISTS schedules (
 INSERT IGNORE INTO users (username, password, role) VALUES ('admin', 'admin123', 'Super Admin');
 
 ```
-🚀 Instalação e Execução
-1️⃣ Permissões de Sistema
+# 🚀 Instalação e Execução
+
+## 1️⃣ Permissões de Sistema
 
 É necessário garantir que o utilizador que executa a aplicação tem permissão nos diretórios do Ansible:
 
+```bash
 sudo chown -R $USER:$USER /etc/ansible/playbooks
 sudo chown $USER:$USER /etc/ansible/hosts
-2️⃣ Configuração do Ambiente
+```
+
+---
+
+## 2️⃣ Configuração do Ambiente
+
+```bash
 # Clone o repositório
 git clone https://github.com/pedrinngkl/ansible_web_dasboard.git
 cd ansible_web_dasboard
@@ -89,22 +97,34 @@ source venv/bin/activate
 
 # Instalar dependências
 pip install flask flask-cors mysql-connector-python python-dotenv
-3️⃣ Variáveis de Ambiente (.env)
+```
 
-Crie um ficheiro .env na raiz do projeto para proteger as suas credenciais:
+---
 
+## 3️⃣ Variáveis de Ambiente (.env)
+
+Crie um ficheiro `.env` na raiz do projeto para proteger as suas credenciais:
+
+```env
 DB_USER=teu_utilizador
 DB_PASSWORD=tua_senha
 DB_HOST=localhost
 DB_NAME=ansible_web
-4️⃣ Execução como Serviço (Systemd)
+```
+
+---
+
+## 4️⃣ Execução como Serviço (Systemd)
 
 Para manter o painel sempre ativo no Linux, crie o ficheiro:
 
+```
 /etc/systemd/system/ansible-web.service
+```
 
 Com o seguinte conteúdo:
 
+```ini
 [Unit]
 Description=Ansible Web Dashboard
 After=network.target mysql.service
@@ -117,12 +137,20 @@ Restart=always
 
 [Install]
 WantedBy=multi-user.target
-🔧 Comandos do serviço
+```
+
+### 🔧 Comandos do serviço
+
+```bash
 sudo systemctl daemon-reload
 sudo systemctl enable ansible-web
 sudo systemctl start ansible-web
-👨‍💻 Sobre o Autor
+```
 
-Desenvolvido por Pedro Gonçalves.
-Atuo como estagiário na área de DevOps e Infraestrutura.
+---
+
+# 👨‍💻 Sobre o Autor
+
+Desenvolvido por **Pedro Gonçalves**.
+Atuo como estagiário na área de **DevOps e Infraestrutura**.
 Focado em automação de sistemas Linux, redes e no desenvolvimento de ferramentas que otimizam a operação de TI através de código.
