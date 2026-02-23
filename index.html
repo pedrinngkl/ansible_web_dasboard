@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Ansible Web</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = { theme: { extend: { colors: { dark: '#050505', primary: '#ee0000', primaryHover: '#cc0000', editor: '#1e1e1e' } } } }
+    </script>
+    <style>
+        body { background-color: #02040a; color: #e2e8f0; font-family: 'Inter', sans-serif; overflow: hidden; }
+        .glass { background: rgba(20, 20, 25, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.08); }
+        .glass-input { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); color: white; transition: 0.3s; }
+        .glass-input:focus { border-color: #ee0000; outline: none; }
+        .active-nav { background: rgba(238, 0, 0, 0.15); border-left: 4px solid #ee0000; color: #fff; }
+        .hidden-screen { display: none !important; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .animate-slide-in { animation: slideIn 0.3s ease-out; }
+        select option { background: #1a1a1a; color: white; }
+    </style>
+</head>
+<body class="h-screen w-full flex overflow-hidden">
+
+    <div id="toast-container" class="fixed top-5 right-5 z-[100] space-y-3"></div>
+
+    <div id="modal-confirm" class="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="glass max-w-sm w-full p-8 rounded-3xl text-center border-t border-white/10">
+            <i class="fa-solid fa-triangle-exclamation text-5xl text-primary mb-4"></i>
+            <h3 id="modal-title" class="text-2xl font-bold mb-2">Confirmar?</h3>
+            <p id="modal-text" class="text-slate-400 text-sm mb-8">Ação irreversível.</p>
+            <div class="flex gap-4">
+                <button onclick="closeModal()" class="flex-1 py-3 rounded-xl bg-slate-800 font-bold">Cancelar</button>
+                <button id="btn-confirm-action" class="flex-1 py-3 rounded-xl bg-primary font-bold">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-run" class="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="glass max-w-md w-full p-8 rounded-3xl border-t border-white/10">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-white"><i class="fa-solid fa-play text-green-500 mr-2"></i> Executar Playbook</h3>
+                <button onclick="closeRunModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-2xl"></i></button>
+            </div>
+            <p class="text-slate-400 text-sm mb-4 font-mono bg-black/40 p-2 rounded" id="run-pb-name-display"></p>
+            
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Máquina ou Grupo Alvo (Opcional)</label>
+            <input type="text" id="run-target" class="w-full glass-input p-4 rounded-xl mb-6 font-mono text-sm" placeholder="Ex: 192.168.1.50, linux, ou all">
+            <p class="text-[10px] text-slate-500 mb-6 -mt-4">* Deixe em branco para usar o padrão do arquivo.</p>
+            
+            <div class="flex gap-4">
+                <button onclick="closeRunModal()" class="flex-1 py-3 rounded-xl bg-slate-800 font-bold">Cancelar</button>
+                <button id="btn-confirm-run" class="flex-1 py-3 rounded-xl bg-green-600 hover:bg-green-500 font-bold text-white transition">INICIAR EXECUÇÃO</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-raw" class="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm hidden items-center justify-center p-8">
+        <div class="glass w-full max-w-4xl h-[80vh] p-8 rounded-3xl flex flex-col border-t border-white/10">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-white"><i class="fa-solid fa-file-code text-primary mr-2"></i> /etc/ansible/hosts (RAW)</h3>
+                <button onclick="closeRawModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-2xl"></i></button>
+            </div>
+            <p class="text-slate-400 text-sm mb-4">Cole aqui o conteúdo de arquivos YAML ou INI de inventário.</p>
+            <textarea id="raw-content" class="flex-1 bg-[#0c0c0c] text-green-400 p-6 font-mono text-sm outline-none resize-none rounded-xl border border-white/10" spellcheck="false"></textarea>
+            <div class="mt-6 flex justify-end gap-4">
+                <button onclick="closeRawModal()" class="px-8 py-3 rounded-xl bg-slate-800 font-bold">Cancelar</button>
+                <button onclick="saveRawInventory()" class="px-8 py-3 rounded-xl bg-blue-600 font-bold">Salvar no Linux</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-login" class="fixed inset-0 z-50 flex items-center justify-center bg-dark bg-[url('https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=2034')] bg-cover">
+        <div class="absolute inset-0 bg-black/85 backdrop-blur-sm"></div>
+        <div class="relative z-10 glass p-10 rounded-3xl w-full max-w-md">
+            <div class="text-center mb-8">
+                <i class="fa-solid fa-network-wired text-5xl text-primary mb-4"></i>
+                <h1 class="text-3xl font-black text-white uppercase italic">Ansible<span class="text-primary">Web</span></h1>
+            </div>
+            <form id="form-login" onsubmit="doLogin(event)" class="space-y-5 block">
+                <input type="text" id="login-user" class="w-full glass-input p-4 rounded-xl" placeholder="Usuário">
+                <input type="password" id="login-pass" class="w-full glass-input p-4 rounded-xl" placeholder="Senha">
+                <button type="submit" class="w-full bg-primary font-bold py-4 rounded-xl shadow-lg">ACESSAR</button>
+                <p class="text-center text-xs text-slate-500 mt-4 cursor-pointer" onclick="toggleRegister(true)">Criar conta</p>
+            </form>
+            <form id="form-register" onsubmit="doRegister(event)" class="space-y-5 hidden">
+                <input type="text" id="reg-user" class="w-full glass-input p-4 rounded-xl" placeholder="Novo Usuário">
+                <input type="password" id="reg-pass" class="w-full glass-input p-4 rounded-xl" placeholder="Nova Senha">
+                <button type="submit" class="w-full bg-green-600 font-bold py-4 rounded-xl">REGISTRAR</button>
+                <p class="text-center text-xs text-slate-500 mt-4 cursor-pointer" onclick="toggleRegister(false)">Voltar</p>
+            </form>
+        </div>
+    </div>
+
+    <div id="screen-app" class="hidden-screen flex-1 flex h-full">
+        <aside class="w-64 glass flex flex-col border-r border-white/5 z-20">
+            <div class="h-20 flex items-center px-8 border-b border-white/5 font-black text-xl">ANSIBLE<span class="text-primary">WEB</span></div>
+            <nav class="flex-1 p-4 mt-4 space-y-2">
+                <button onclick="nav('dashboard')" id="btn-dashboard" class="w-full flex items-center p-4 rounded-xl active-nav transition"><i class="fa-solid fa-chart-line w-8"></i> Dashboard</button>
+                <button onclick="nav('inventory'); loadInventory()" id="btn-inventory" class="w-full flex items-center p-4 rounded-xl hover:bg-white/5 transition"><i class="fa-solid fa-server w-8"></i> Inventário</button>
+                <button onclick="nav('playbooks'); loadPlaybooks()" id="btn-playbooks" class="w-full flex items-center p-4 rounded-xl hover:bg-white/5 transition"><i class="fa-solid fa-book w-8"></i> Playbooks</button>
+                <button onclick="nav('cron'); loadSchedulesAndPlaybooks()" id="btn-cron" class="w-full flex items-center p-4 rounded-xl hover:bg-white/5 transition"><i class="fa-solid fa-calendar-check w-8"></i> Agendamentos</button>
+                <button onclick="nav('history'); loadHistory()" id="btn-history" class="w-full flex items-center p-4 rounded-xl hover:bg-white/5 transition"><i class="fa-solid fa-clock-rotate-left w-8"></i> Histórico</button>
+                <div id="admin-menu" class="hidden pt-4 border-t border-white/5 mt-4">
+                    <button onclick="nav('users'); loadUsers()" id="btn-users" class="w-full flex items-center p-4 rounded-xl hover:bg-white/5 transition text-blue-400 font-bold"><i class="fa-solid fa-user-shield w-8"></i> Usuários</button>
+                </div>
+            </nav>
+            <div class="p-8 border-t border-white/5 bg-black/20 text-center">
+                <div id="user-display" class="font-bold text-sm text-white mb-4">User</div>
+                <button onclick="location.reload()" class="text-red-500 text-xs font-bold uppercase">Logout</button>
+            </div>
+        </aside>
+
+        <main class="flex-1 bg-gradient-to-br from-dark to-[#0f172a] overflow-hidden flex flex-col p-10">
+            
+            <div id="view-dashboard" class="view-section h-full flex flex-col">
+                <h2 class="text-4xl font-black mb-10 text-white">Dashboard</h2>
+                <div class="glass rounded-3xl border border-white/10 flex flex-col h-[500px] overflow-hidden shadow-2xl">
+                    <div class="px-6 py-4 bg-black/40 border-b border-white/5 flex justify-between">
+                        <span class="text-xs font-mono text-slate-500 tracking-widest uppercase">Live Terminal</span>
+                    </div>
+                    <div id="main-terminal" class="flex-1 p-8 font-mono text-sm overflow-y-auto text-slate-300 bg-[#020617] leading-relaxed">
+                        <div class="text-slate-700 italic">// Aguardando execução...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-inventory" class="view-section hidden-screen h-full overflow-y-auto">
+                <div class="flex justify-between items-center mb-10">
+                    <h2 class="text-4xl font-black text-white">Inventário de Máquinas</h2>
+                    <button onclick="openRawModal()" class="bg-slate-800 border border-white/10 text-white px-6 py-3 rounded-full text-xs font-bold hover:bg-slate-700 transition"><i class="fa-solid fa-code"></i> Colar YML / Raw Edit</button>
+                </div>
+                
+                <div class="glass p-8 rounded-3xl mb-10 border border-white/5">
+                    <h3 id="inv-form-title" class="font-bold mb-4 text-primary uppercase text-xs">Adicionar PC</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <input type="text" id="inv-hostname" class="glass-input p-3 rounded-xl" placeholder="Nome (Ex: Ubuntu-01)">
+                        <input type="text" id="inv-ip" class="glass-input p-3 rounded-xl" placeholder="IP (Ex: 192.168.1.10)">
+                        <input type="text" id="inv-group" class="glass-input p-3 rounded-xl" placeholder="Grupo (Ex: linux)">
+                        <button id="btn-save-inv" onclick="addInventory()" class="bg-primary rounded-xl font-bold">Salvar Máquina</button>
+                    </div>
+                </div>
+                <div class="glass rounded-3xl overflow-hidden border border-white/5">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-white/5 text-slate-500 uppercase text-xs">
+                            <tr><th class="p-6">Nome</th><th class="p-6">IP</th><th class="p-6">Grupo no Arquivo</th><th class="p-6 text-right">Ações</th></tr>
+                        </thead>
+                        <tbody id="inventory-list" class="divide-y divide-white/5"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="view-playbooks" class="view-section hidden-screen h-full overflow-y-auto">
+                <div class="flex justify-between items-center mb-10">
+                    <h2 class="text-4xl font-black text-white">Biblioteca</h2>
+                    <button onclick="newPlaybook()" class="bg-primary px-8 py-3 rounded-2xl font-bold">+ Novo</button>
+                </div>
+                <div id="playbooks-list" class="grid gap-4"></div>
+            </div>
+
+            <div id="view-editor" class="view-section hidden-screen h-full flex flex-col">
+                <div class="p-6 glass border-b border-white/5 flex gap-4 mb-4 rounded-xl">
+                    <input type="text" id="ed-name" class="flex-1 glass-input p-3 rounded-xl text-lg font-bold" placeholder="arquivo.yml">
+                    <button onclick="savePlaybook()" class="bg-blue-600 px-10 py-3 rounded-xl font-bold">SALVAR PLAYBOOK</button>
+                </div>
+                <textarea id="ed-content" class="flex-1 bg-editor p-10 font-mono text-sm outline-none border-none resize-none rounded-xl" spellcheck="false"></textarea>
+            </div>
+
+            <div id="view-cron" class="view-section hidden-screen h-full overflow-y-auto">
+                <h2 class="text-4xl font-black mb-10">Agendamentos</h2>
+                
+                <div class="glass p-8 rounded-3xl mb-10 border border-white/5">
+                    <h3 class="font-bold mb-4 text-primary uppercase text-xs">Criar Tarefa Automática</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <select id="cron-pb-select" class="glass-input p-3 rounded-xl cursor-pointer col-span-2"><option value="">Selecione o Playbook...</option></select>
+                        <input type="text" id="cron-desc" class="glass-input p-3 rounded-xl col-span-2" placeholder="Breve descrição">
+                    </div>
+
+                    <div class="bg-black/30 p-4 rounded-xl flex items-center gap-4 flex-wrap">
+                        <select id="cron-freq" onchange="updateCronUI()" class="glass-input p-2 rounded-lg cursor-pointer text-sm">
+                            <option value="daily">Diariamente</option>
+                            <option value="weekly">Semanalmente</option>
+                            <option value="monthly">Mensalmente</option>
+                            <option value="custom">Expressão Manual</option>
+                        </select>
+                        
+                        <select id="cron-day" onchange="updateCronVal()" class="glass-input p-2 rounded-lg cursor-pointer text-sm hidden">
+                            <option value="1">Segunda-feira</option>
+                            <option value="2">Terça-feira</option>
+                            <option value="3">Quarta-feira</option>
+                            <option value="4">Quinta-feira</option>
+                            <option value="5">Sexta-feira</option>
+                            <option value="6">Sábado</option>
+                            <option value="0">Domingo</option>
+                        </select>
+
+                        <input type="number" id="cron-date" onchange="updateCronVal()" min="1" max="31" value="1" class="glass-input p-2 rounded-lg w-20 text-sm hidden" placeholder="Dia">
+                        <input type="time" id="cron-time" onchange="updateCronVal()" value="12:00" class="glass-input p-2 rounded-lg text-sm">
+                        
+                        <div class="flex-1 text-right font-mono text-primary flex items-center justify-end gap-2">
+                            <span class="text-xs text-slate-500 uppercase">Cron:</span>
+                            <input type="text" id="cron-exp" readonly class="bg-transparent font-bold text-lg outline-none w-32 text-right" value="0 12 * * *">
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex justify-end">
+                        <button onclick="addSchedule()" class="bg-primary px-10 py-3 rounded-xl font-bold">Agendar</button>
+                    </div>
+                </div>
+                
+                <div id="cron-list" class="grid gap-4"></div>
+            </div>
+
+            <div id="view-history" class="view-section hidden-screen h-full overflow-y-auto">
+                <h2 class="text-4xl font-black mb-10">Histórico</h2>
+                <div class="glass rounded-3xl overflow-hidden border border-white/5">
+                    <table class="w-full text-left text-sm"><tbody id="history-list" class="divide-y divide-white/5"></tbody></table>
+                </div>
+            </div>
+
+            <div id="view-users" class="view-section hidden-screen h-full overflow-y-auto">
+                <h2 class="text-4xl font-black mb-10 text-blue-400">Usuários</h2>
+                <div class="glass rounded-3xl overflow-hidden border border-white/5">
+                    <table class="w-full text-left text-sm"><tbody id="users-list" class="divide-y divide-white/5"></tbody></table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        const API = "/api";
+        let USER = { name: '', role: '' };
+        let activeConfirmAction = null;
+        let editingHostname = null;
+
+        // ESTA VARIÁVEL RESOLVE O BUG DO BOTÃO EDITAR
+        let playbooksMemory = {}; 
+
+        function toast(msg, type='success') {
+            const container = document.getElementById('toast-container');
+            const div = document.createElement('div');
+            div.className = `p-4 rounded-xl glass border-l-4 ${type==='success'?'border-green-500':'border-primary'} shadow-2xl animate-slide-in font-bold text-xs z-[999]`;
+            div.innerText = msg; container.appendChild(div);
+            setTimeout(() => div.remove(), 4000);
+        }
+
+        function nav(id) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden-screen'));
+            document.querySelectorAll('aside nav button').forEach(el => el.classList.remove('active-nav'));
+            document.getElementById('view-' + id).classList.remove('hidden-screen');
+            document.getElementById('btn-' + id)?.classList.add('active-nav');
+        }
+
+        function toggleRegister(show) {
+            document.getElementById('form-login').classList.toggle('hidden', show);
+            document.getElementById('form-register').classList.toggle('hidden', !show);
+        }
+
+        // ==========================================
+        // MODAIS GERAIS E RUN MODAL
+        // ==========================================
+        function openConfirm(title, text, action) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-text').innerText = text;
+            activeConfirmAction = action;
+            document.getElementById('modal-confirm').classList.replace('hidden', 'flex');
+        }
+        function closeModal() { document.getElementById('modal-confirm').classList.replace('flex', 'hidden'); }
+        document.getElementById('btn-confirm-action').onclick = () => { if(activeConfirmAction) activeConfirmAction(); };
+
+        let playbookToRun = null;
+        function openRunModal(pbName) {
+            playbookToRun = pbName;
+            document.getElementById('run-pb-name-display').innerText = `Arquivo: ${pbName}`;
+            document.getElementById('run-target').value = '';
+            document.getElementById('modal-run').classList.replace('hidden', 'flex');
+        }
+        function closeRunModal() { document.getElementById('modal-run').classList.replace('flex', 'hidden'); }
+        document.getElementById('btn-confirm-run').onclick = () => {
+            if(!playbookToRun) return;
+            const target = document.getElementById('run-target').value;
+            closeRunModal();
+            runStream(playbookToRun, target);
+        };
+
+        // AUTH
+        async function doLogin(e) {
+            e.preventDefault();
+            const res = await fetch(`${API}/login`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({user: document.getElementById('login-user').value, password: document.getElementById('login-pass').value}) });
+            const data = await res.json();
+            if(res.ok) {
+                USER = data.user;
+                document.getElementById('screen-login').classList.add('hidden-screen');
+                document.getElementById('screen-app').classList.remove('hidden-screen');
+                document.getElementById('user-display').innerText = `${USER.name} (${USER.role})`;
+                if(USER.role === 'Super Admin') document.getElementById('admin-menu').classList.remove('hidden');
+                toast(`Bem-vindo, ${USER.name}!`); nav('dashboard');
+            } else { toast(data.message, 'error'); }
+        }
+
+        async function doRegister(e) {
+            e.preventDefault();
+            const res = await fetch(`${API}/register`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({user: document.getElementById('reg-user').value, password: document.getElementById('reg-pass').value}) });
+            const data = await res.json();
+            if(res.ok) { toast(data.message); toggleRegister(false); } else { toast(data.message, 'error'); }
+        }
+
+        // ==========================================
+        // INVENTÁRIO
+        // ==========================================
+        async function loadInventory() {
+            const res = await fetch(`${API}/inventory`);
+            const data = await res.json();
+            const list = document.getElementById('inventory-list');
+            list.innerHTML = '';
+            data.forEach(inv => {
+                list.innerHTML += `<tr class="hover:bg-white/5 transition">
+                    <td class="p-6 font-bold text-white"><i class="fa-solid fa-desktop text-slate-500 mr-2"></i> ${inv.hostname}</td>
+                    <td class="p-6 font-mono">${inv.ip}</td>
+                    <td class="p-6"><span class="bg-blue-900/30 text-blue-400 px-3 py-1 rounded-full text-xs">[${inv.group}]</span></td>
+                    <td class="p-6 text-right">
+                        <button onclick="editInventory('${inv.hostname}', '${inv.ip}', '${inv.group}')" class="text-blue-400 mr-3 hover:text-white"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="openConfirm('Excluir PC', 'Remover máquina do arquivo hosts?', () => executeDeleteInventory('${inv.hostname}'))" class="text-primary hover:text-white"><i class="fa-solid fa-trash"></i></button>
+                    </td></tr>`;
+            });
+        }
+        function editInventory(h, i, g) {
+            editingHostname = h;
+            document.getElementById('inv-hostname').value = h;
+            document.getElementById('inv-ip').value = i;
+            document.getElementById('inv-group').value = g;
+            document.getElementById('inv-form-title').innerText = "Atualizar Máquina";
+            const btn = document.getElementById('btn-save-inv');
+            btn.innerText = "Salvar Alteração";
+            btn.classList.replace('bg-primary', 'bg-blue-500');
+        }
+        async function addInventory() {
+            const h = document.getElementById('inv-hostname').value;
+            const i = document.getElementById('inv-ip').value;
+            const g = document.getElementById('inv-group').value || 'all';
+            if(!h || !i) return toast("Preencha Nome e IP!", "error");
+            if (editingHostname) await fetch(`${API}/inventory/${editingHostname}`, { method: 'DELETE' });
+            await fetch(`${API}/inventory`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({hostname: h, ip: i, group: g}) });
+            toast("Salvo com sucesso!"); 
+            editingHostname = null;
+            document.getElementById('inv-hostname').value = '';
+            document.getElementById('inv-ip').value = '';
+            document.getElementById('inv-group').value = '';
+            document.getElementById('inv-form-title').innerText = "Adicionar PC";
+            const btn = document.getElementById('btn-save-inv');
+            btn.innerText = "Salvar Máquina";
+            btn.classList.replace('bg-blue-500', 'bg-primary');
+            loadInventory();
+        }
+        async function executeDeleteInventory(hostname) {
+            await fetch(`${API}/inventory/${hostname}`, { method: 'DELETE' });
+            toast("Removido do arquivo!"); loadInventory(); closeModal();
+        }
+        async function openRawModal() {
+            const res = await fetch(`${API}/inventory/file`);
+            const data = await res.json();
+            document.getElementById('raw-content').value = data.content;
+            document.getElementById('modal-raw').classList.replace('hidden', 'flex');
+        }
+        function closeRawModal() { document.getElementById('modal-raw').classList.replace('flex', 'hidden'); }
+        async function saveRawInventory() {
+            const content = document.getElementById('raw-content').value;
+            const res = await fetch(`${API}/inventory/file`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({content: content}) });
+            if(res.ok) { toast("Arquivo nativo atualizado!"); closeRawModal(); loadInventory(); }
+        }
+
+        // ==========================================
+        // PLAYBOOKS (CORRIGIDO)
+        // ==========================================
+        async function loadPlaybooks() {
+            const res = await fetch(`${API}/playbooks`);
+            const data = await res.json();
+            const list = document.getElementById('playbooks-list');
+            list.innerHTML = '';
+            playbooksMemory = {}; // Limpa a memória
+
+            data.forEach(pb => {
+                playbooksMemory[pb.name] = pb.content; // Salva na memória do navegador
+
+                const div = document.createElement('div');
+                div.className = "glass p-6 rounded-2xl flex justify-between items-center group hover:border-primary transition";
+                div.innerHTML = `<div><h3 class="font-bold text-lg text-white"><i class="fa-solid fa-file-code text-slate-500 mr-2"></i> ${pb.name}</h3></div>
+                    <div class="flex gap-4">
+                        <button onclick="editPb('${pb.name}')" class="text-blue-400 font-bold hover:text-white transition"><i class="fa-solid fa-pen"></i> Editar</button>
+                        <button onclick="openRunModal('${pb.name}')" class="text-green-500 font-bold hover:text-white"><i class="fa-solid fa-play"></i> Rodar</button>
+                        <button onclick="openConfirm('Excluir Arquivo', 'Apagar .yml do Linux?', () => executeDeletePb('${pb.name}'))" class="text-primary font-bold hover:text-white"><i class="fa-solid fa-trash"></i></button>
+                    </div>`;
+                list.appendChild(div);
+            });
+        }
+        
+        function newPlaybook() { 
+            document.getElementById('ed-name').value = "novo.yml"; 
+            document.getElementById('ed-content').value = "---\n- name: Playbook\n  hosts: all\n  tasks:\n    - ping:\n"; 
+            nav('editor'); 
+        }
+
+        function editPb(name) {
+            document.getElementById('ed-name').value = name;
+            document.getElementById('ed-content').value = playbooksMemory[name]; // Puxa da memória direto!
+            nav('editor');
+        }
+
+        async function executeDeletePb(filename) { 
+            await fetch(`${API}/playbooks/${filename}`, { method: 'DELETE' }); 
+            toast("Arquivo apagado!"); loadPlaybooks(); closeModal(); 
+        }
+        
+        async function savePlaybook() {
+            const n = document.getElementById('ed-name').value;
+            const c = document.getElementById('ed-content').value;
+            await fetch(`${API}/playbooks`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name: n, content: c}) });
+            toast("Arquivo salvo com sucesso!"); nav('playbooks'); loadPlaybooks();
+        }
+
+        // ==========================================
+        // CRON VISUAL
+        // ==========================================
+        function updateCronUI() {
+            const freq = document.getElementById('cron-freq').value;
+            document.getElementById('cron-day').classList.toggle('hidden', freq !== 'weekly');
+            document.getElementById('cron-date').classList.toggle('hidden', freq !== 'monthly');
+            document.getElementById('cron-time').classList.toggle('hidden', freq === 'custom');
+            document.getElementById('cron-exp').readOnly = (freq !== 'custom');
+            if(freq === 'custom') document.getElementById('cron-exp').focus();
+            updateCronVal();
+        }
+        function updateCronVal() {
+            const freq = document.getElementById('cron-freq').value;
+            if(freq === 'custom') return;
+            const timeStr = document.getElementById('cron-time').value || '00:00';
+            const [h, m] = timeStr.split(':');
+            let exp = '';
+            if(freq === 'daily') exp = `${parseInt(m)} ${parseInt(h)} * * *`;
+            if(freq === 'weekly') exp = `${parseInt(m)} ${parseInt(h)} * * ${document.getElementById('cron-day').value}`;
+            if(freq === 'monthly') exp = `${parseInt(m)} ${parseInt(h)} ${document.getElementById('cron-date').value || '1'} * *`;
+            document.getElementById('cron-exp').value = exp;
+        }
+
+        async function loadSchedulesAndPlaybooks() {
+            const resSched = await fetch(`${API}/schedules`);
+            const schedules = await resSched.json();
+            const list = document.getElementById('cron-list');
+            list.innerHTML = '';
+            schedules.forEach(s => {
+                const statusColor = s.active ? 'text-green-500' : 'text-yellow-500';
+                list.innerHTML += `<div class="glass p-6 rounded-2xl flex justify-between items-center border border-white/5"><div><h3 class="font-bold text-white">${s.playbook_name}</h3><p class="text-xs text-slate-400 font-mono">${s.cron_expression} - ${s.description}</p></div><div class="flex gap-4"><button onclick="toggleSchedule(${s.id})" class="${statusColor} font-bold text-xs"><i class="fa-solid fa-power-off"></i> ${s.active?'Pausar':'Retomar'}</button><button onclick="openConfirm('Cancelar Agendamento', 'Remover tarefa?', () => executeDeleteSchedule(${s.id}))" class="text-primary font-bold text-xs"><i class="fa-solid fa-trash"></i> Cancelar</button></div></div>`;
+            });
+            const resPb = await fetch(`${API}/playbooks`);
+            const playbooks = await resPb.json();
+            const select = document.getElementById('cron-pb-select');
+            select.innerHTML = '<option value="">Selecione o Playbook...</option>';
+            playbooks.forEach(pb => select.innerHTML += `<option value="${pb.name}">${pb.name}</option>`);
+        }
+        
+        async function addSchedule() {
+            const pb = document.getElementById('cron-pb-select').value;
+            const exp = document.getElementById('cron-exp').value;
+            const d = document.getElementById('cron-desc').value || 'Sem descrição';
+            if(!pb) return toast("Selecione um playbook!", "error");
+            await fetch(`${API}/schedules`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({playbook: pb, cron: exp, desc: d}) });
+            toast("Agendado com sucesso!"); loadSchedulesAndPlaybooks();
+        }
+        async function toggleSchedule(id) { await fetch(`${API}/schedules/${id}/toggle`, { method: 'POST' }); loadSchedulesAndPlaybooks(); }
+        async function executeDeleteSchedule(id) { await fetch(`${API}/schedules/${id}`, { method: 'DELETE' }); loadSchedulesAndPlaybooks(); closeModal(); }
+
+        // ==========================================
+        // OUTROS (HISTÓRICO E RUN STREAM)
+        // ==========================================
+        async function loadHistory() {
+            const res = await fetch(`${API}/history`);
+            const data = await res.json();
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+            data.forEach(h => { list.innerHTML += `<tr class="hover:bg-white/5"><td class="p-6 text-slate-500 text-xs">${new Date(h.executed_at).toLocaleString()}</td><td class="p-6 font-bold text-white">${h.user_name}</td><td class="p-6 text-blue-400">${h.playbook_name}</td><td class="p-6 text-green-500 font-bold uppercase text-[10px] tracking-widest">${h.status}</td></tr>`; });
+        }
+        async function loadUsers() {
+            const res = await fetch(`${API}/users`);
+            const data = await res.json();
+            const list = document.getElementById('users-list');
+            list.innerHTML = '';
+            data.forEach(u => { list.innerHTML += `<tr><td class="p-6 text-slate-500">#${u.id}</td><td class="p-6 font-bold text-white">${u.username}</td><td class="p-6"><span class="px-3 py-1 bg-slate-800 rounded-full text-[10px] font-black uppercase text-blue-400">${u.role}</span></td><td class="p-6"><button onclick="promoteUser(${u.id}, '${u.role === 'Super Admin' ? 'User' : 'Super Admin'}')" class="text-blue-400 text-[10px] font-black uppercase">Alterar Role</button></td></tr>`; });
+        }
+        async function promoteUser(id, role) { await fetch(`${API}/users/promote`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id, role}) }); toast("Permissão alterada!"); loadUsers(); }
+
+        async function runStream(pb, targetLimit = '') {
+            nav('dashboard');
+            const term = document.getElementById('main-terminal');
+            term.innerHTML = `<div class="text-primary animate-pulse mb-4 font-bold uppercase text-xs">🚀 Preparando ambiente...</div>`;
+            
+            let url = `${API}/run-stream?playbook=${pb}&user=${USER.name}`;
+            if (targetLimit.trim() !== '') {
+                url += `&limit=${encodeURIComponent(targetLimit.trim())}`;
+            }
+
+            const res = await fetch(url);
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            while(true) {
+                const {done, value} = await reader.read();
+                if(done) break;
+                decoder.decode(value).split('\n').forEach(line => {
+                    if(line.trim()) {
+                        const log = JSON.parse(line);
+                        const div = document.createElement('div');
+                        div.className = log.c + " mb-1"; div.innerText = log.t;
+                        term.appendChild(div); term.scrollTop = term.scrollHeight;
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>

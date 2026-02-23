@@ -1,0 +1,10 @@
+# Ignorar arquivos de ambiente e segredos
+.env
+
+# Ignorar a pasta do ambiente virtual do Python
+venv/
+__pycache__/
+
+# Ignorar o arquivo de hosts gerado dinamicamente (se existir)
+hosts.ini
+
