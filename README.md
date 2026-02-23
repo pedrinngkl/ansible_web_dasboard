@@ -6,6 +6,17 @@ Uma interface web moderna, responsiva e robusta para orquestração de infraestr
 
 Este projeto foi desenvolvido para simplificar a execução e o acompanhamento de rotinas de DevOps, transformando operações complexas de CLI numa experiência visual intuitiva, mantendo o controlo total sobre os ficheiros nativos do sistema (/etc/ansible).
 
+## 🛠️ Tecnologias Utilizadas
+
+<p align="left">
+  <img src="https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white" />
+  <img src="https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white" />
+  <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" />
+  <img src="https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white" />
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white" />
+</p>
+
 ---
 
 ## 🎯 O Problema que Resolve
