@@ -72,16 +72,15 @@ INSERT IGNORE INTO users (username, password, role) VALUES ('admin', 'admin123',
 
 ```
 🚀 Instalação e Execução
-1. Permissões de Sistema
-É necessário garantir que o utilizador que corre a aplicação tem permissão nos diretórios do Ansible:
+1️⃣ Permissões de Sistema
 
-Bash
+É necessário garantir que o utilizador que executa a aplicação tem permissão nos diretórios do Ansible:
+
 sudo chown -R $USER:$USER /etc/ansible/playbooks
 sudo chown $USER:$USER /etc/ansible/hosts
-2. Configuração do Ambiente
-Bash
+2️⃣ Configuração do Ambiente
 # Clone o repositório
-git clone [https://github.com/pedrinngkl/ansible_web_dasboard.git](https://github.com/pedrinngkl/ansible_web_dasboard.git)
+git clone https://github.com/pedrinngkl/ansible_web_dasboard.git
 cd ansible_web_dasboard
 
 # Criar e ativar ambiente virtual
@@ -90,18 +89,22 @@ source venv/bin/activate
 
 # Instalar dependências
 pip install flask flask-cors mysql-connector-python python-dotenv
-3. Variáveis de Ambiente (.env)
-Cria um ficheiro .env na raiz do projeto:
+3️⃣ Variáveis de Ambiente (.env)
 
-Snippet de código
+Crie um ficheiro .env na raiz do projeto para proteger as suas credenciais:
+
 DB_USER=teu_utilizador
 DB_PASSWORD=tua_senha
 DB_HOST=localhost
 DB_NAME=ansible_web
-4. Execução como Serviço (Systemd)
-Para manter o painel sempre ativo no Linux, cria o ficheiro /etc/systemd/system/ansible-web.service:
+4️⃣ Execução como Serviço (Systemd)
 
-Ini, TOML
+Para manter o painel sempre ativo no Linux, crie o ficheiro:
+
+/etc/systemd/system/ansible-web.service
+
+Com o seguinte conteúdo:
+
 [Unit]
 Description=Ansible Web Dashboard
 After=network.target mysql.service
@@ -114,13 +117,12 @@ Restart=always
 
 [Install]
 WantedBy=multi-user.target
-Comandos do serviço:
-
-Bash
+🔧 Comandos do serviço
 sudo systemctl daemon-reload
 sudo systemctl enable ansible-web
 sudo systemctl start ansible-web
 👨‍💻 Sobre o Autor
+
 Desenvolvido por Pedro Gonçalves.
-Estagiário na área de DevOps e Infraestrutura.
+Atuo como estagiário na área de DevOps e Infraestrutura.
 Focado em automação de sistemas Linux, redes e no desenvolvimento de ferramentas que otimizam a operação de TI através de código.
