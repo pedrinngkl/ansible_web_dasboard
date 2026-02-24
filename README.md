@@ -141,9 +141,9 @@ Description=Ansible Web Dashboard
 After=network.target mysql.service
 
 [Service]
-User=construinfra
-WorkingDirectory=/home/construinfra/ansible-portfolio
-ExecStart=/home/construinfra/ansible-portfolio/venv/bin/python server.py
+User=seu_user
+WorkingDirectory=/home/seu_user/ansible-portfolio
+ExecStart=/home/seu_user/ansible-portfolio/venv/bin/python server.py
 Restart=always
 
 [Install]
